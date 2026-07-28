@@ -137,15 +137,101 @@ def _is_terminal_observation(observation: str) -> bool:
     return observation.startswith(("LỖI", "KHÔNG ĐỦ ĐIỀU KIỆN"))
 
 
-def _finalize_plan(plan: RequestPlan, observation: str) -> str:
-    prefixes = {
-        "FIND_ORDER_IDS": "Kết quả tìm mã đơn",
-        "LOOKUP_ORDER": "Thông tin đơn hàng",
-        "CHECK_RETURN_ELIGIBILITY": "Kết quả kiểm tra đổi trả",
-        "CREATE_RETURN_REQUEST": "Kết quả tạo yêu cầu đổi trả",
+def _format_phone_number(phone_number: str) -> str:
+    digits = "".join(character for character in str(phone_number) if character.isdigit())
+    if len(digits) == 10:
+        return f"{digits[:4]} {digits[4:7]} {digits[7:]}"
+    return str(phone_number)
+
+
+def _format_price_vnd(price: Any) -> str:
+    try:
+        return f"{int(price):,}".replace(",", ".") + " VNĐ"
+    except (TypeError, ValueError):
+        return f"{price} VNĐ"
+
+
+def _join_vietnamese(items: list[str]) -> str:
+    if len(items) <= 1:
+        return "".join(items)
+    return ", ".join(items[:-1]) + f" và {items[-1]}"
+
+
+def _format_lookup_order(observation: str) -> str | None:
+    try:
+        order = json.loads(observation)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(order, dict) or "order_id" not in order:
+        return None
+
+    status_labels = {
+        "processing": "đang được xử lý",
+        "confirmed": "đã được xác nhận",
+        "shipping": "đang được vận chuyển",
+        "delivered": "đã được giao",
+        "cancelled": "đã bị hủy",
+        "canceled": "đã bị hủy",
     }
-    prefix = prefixes.get(plan.intent, "Kết quả")
-    return f"{prefix}: {observation}"
+    status = status_labels.get(str(order.get("status", "")).lower(), order.get("status"))
+    sentences = [f"Đơn {order['order_id']} hiện {status}."]
+
+    product = order.get("product")
+    price = order.get("price_vnd")
+    if product and price is not None:
+        sentences.append(f"Sản phẩm là {product}, có giá {_format_price_vnd(price)}.")
+    elif product:
+        sentences.append(f"Sản phẩm là {product}.")
+
+    phone_number = order.get("phone_number")
+    if phone_number:
+        sentences.append(
+            f"Số điện thoại đặt hàng là {_format_phone_number(phone_number)}."
+        )
+
+    delivered_days_ago = order.get("delivered_days_ago")
+    if delivered_days_ago is not None and order.get("status") == "delivered":
+        sentences.append(f"Đơn đã được giao {delivered_days_ago} ngày trước.")
+    return " ".join(sentences)
+
+
+def _format_order_ids(observation: str) -> str | None:
+    try:
+        result = json.loads(observation)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(result, dict) or not isinstance(result.get("order_ids"), list):
+        return None
+
+    order_ids = [str(order_id) for order_id in result["order_ids"]]
+    phone_number = _format_phone_number(result.get("phone_number", ""))
+    if not order_ids:
+        return f"Mình không tìm thấy đơn hàng nào của số điện thoại {phone_number}."
+    noun = "đơn hàng" if len(order_ids) == 1 else f"{len(order_ids)} đơn hàng"
+    return (
+        f"Số điện thoại {phone_number} có {noun}: "
+        f"{_join_vietnamese(order_ids)}."
+    )
+
+
+def _finalize_plan(plan: RequestPlan, observation: str) -> str:
+    if observation.startswith("LỖI:"):
+        return f"Mình chưa thể hoàn tất yêu cầu. {observation.removeprefix('LỖI:').strip()}"
+
+    if plan.intent == "LOOKUP_ORDER":
+        return _format_lookup_order(observation) or observation
+    if plan.intent == "FIND_ORDER_IDS":
+        return _format_order_ids(observation) or observation
+    if plan.intent == "CHECK_RETURN_ELIGIBILITY":
+        if observation.startswith("ĐỦ ĐIỀU KIỆN:"):
+            detail = observation.removeprefix("ĐỦ ĐIỀU KIỆN:").strip()
+            return f"Đơn hàng đủ điều kiện đổi trả. {detail}"
+        if observation.startswith("KHÔNG ĐỦ ĐIỀU KIỆN:"):
+            detail = observation.removeprefix("KHÔNG ĐỦ ĐIỀU KIỆN:").strip()
+            return f"Đơn hàng chưa đủ điều kiện đổi trả. {detail}"
+    if plan.intent == "CREATE_RETURN_REQUEST":
+        return observation
+    return observation
 
 
 def load_test_cases() -> list[dict[str, Any]]:

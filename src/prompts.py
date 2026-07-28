@@ -38,6 +38,6 @@ Final Answer: câu trả lời tiếng Việt ngắn gọn cho người dùng.
 """
 
 
-MAX_ITERATIONS = 4
+MAX_ITERATIONS = 8
 MAX_POLICY_RETRIES = 3
 TIMEOUT_SECONDS = 10

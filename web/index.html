@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="OrderCare — trợ lý chăm sóc đơn hàng có ReAct trace." />
+    <title>OrderCare · Trợ lý đơn hàng</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="OrderCare trang chủ">
+          <span class="brand-mark">O</span>
+          <span><strong>OrderCare</strong><small>Customer Intelligence</small></span>
+        </a>
+        <div class="connection">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="providerStatus">Đang kết nối…</span>
+        </div>
+      </header>
+
+      <main class="workspace" data-active-panel="chat">
+        <nav class="mobile-workspace-tabs" aria-label="Chuyển vùng làm việc">
+          <button class="workspace-tab active" type="button" data-panel="chat" aria-controls="chatPanel" aria-selected="true">
+            Hội thoại
+          </button>
+          <button class="workspace-tab" type="button" data-panel="trace" aria-controls="tracePanel" aria-selected="false">
+            Reasoning <span class="trace-count" id="traceCount">0</span>
+          </button>
+          <button class="workspace-tab" type="button" data-panel="capabilities" aria-controls="capabilitiesPanel" aria-selected="false">
+            Tools <span class="trace-count" id="capabilityCount">0</span>
+          </button>
+        </nav>
+
+        <section class="chat-panel" id="chatPanel" aria-label="Hội thoại chăm sóc khách hàng">
+          <div class="chat-heading">
+            <div>
+              <p class="eyebrow">TRUNG TÂM HỖ TRỢ</p>
+              <h1>Xin chào, mình có thể giúp gì?</h1>
+              <p>Tra cứu đơn, kiểm tra đổi trả hoặc tìm mã đơn theo số điện thoại.</p>
+            </div>
+            <div class="mode-switch" role="group" aria-label="Chọn chế độ trả lời">
+              <button class="mode-button active" data-mode="compare">So sánh</button>
+              <button class="mode-button" data-mode="agent">Agent</button>
+              <button class="mode-button" data-mode="baseline">Baseline</button>
+            </div>
+          </div>
+
+          <div class="quick-prompts" aria-label="Câu hỏi gợi ý">
+            <button data-prompt="Tìm mã đơn hàng của số điện thoại 0981801663">Tìm mã đơn</button>
+            <button data-prompt="Đơn ORD002 đang ở trạng thái nào?">Trạng thái đơn</button>
+            <button data-prompt="Đơn ORD001 có đủ điều kiện đổi trả không?">Kiểm tra đổi trả</button>
+            <button data-prompt="Chính sách đổi trả là gì?">Xem chính sách</button>
+          </div>
+
+          <div class="messages" id="messages" aria-live="polite">
+            <article class="message assistant">
+              <div class="avatar">OC</div>
+              <div class="bubble">
+                <p>Chào bạn! Mình là trợ lý OrderCare. Hãy nhập mã đơn hoặc số điện thoại để bắt đầu.</p>
+              </div>
+            </article>
+          </div>
+
+          <form class="composer" id="chatForm">
+            <label class="sr-only" for="messageInput">Nhập câu hỏi</label>
+            <textarea id="messageInput" rows="1" placeholder="Nhập câu hỏi về đơn hàng…" required></textarea>
+            <button class="send-button" id="sendButton" type="submit" aria-label="Gửi tin nhắn">Gửi <span>↗</span></button>
+            <p class="composer-note">Enter để gửi · Shift + Enter để xuống dòng</p>
+          </form>
+        </section>
+
+        <aside class="trace-panel" id="tracePanel" aria-label="Nhật ký suy luận của Agent">
+          <div class="trace-header">
+            <div>
+              <p class="eyebrow">REACT TRACE</p>
+              <h2>Quá trình xử lý</h2>
+            </div>
+            <button class="clear-button" id="clearButton" type="button">Xóa chat</button>
+          </div>
+
+          <div class="trace-summary" id="traceSummary">
+            <span class="trace-badge">Sẵn sàng</span>
+            <p>Trace của câu hỏi gần nhất sẽ xuất hiện tại đây.</p>
+          </div>
+          <div class="trace-list" id="traceList">
+            <div class="empty-trace">
+              <span>◎</span>
+              <p>Chưa có hoạt động</p>
+              <small>Gửi một câu hỏi để xem Agent chọn intent, tool và điểm dừng.</small>
+            </div>
+          </div>
+        </aside>
+
+        <aside class="capabilities-panel" id="capabilitiesPanel" aria-label="Guardrail và công cụ của Agent">
+          <div class="capabilities-header">
+            <p class="eyebrow">AGENT CAPABILITIES</p>
+            <h2>Tools & Guardrails</h2>
+            <p>Các khả năng được cấp và giới hạn đang bảo vệ phiên làm việc.</p>
+          </div>
+
+          <div class="capabilities-body">
+            <div class="limit-grid" aria-label="Thông số guardrail">
+              <div><strong id="maxSteps">—</strong><span>Bước tối đa</span></div>
+              <div><strong id="policyRetries">—</strong><span>Policy retry</span></div>
+              <div><strong id="toolTimeout">—</strong><span>Timeout</span></div>
+              <div><strong id="returnWindow">—</strong><span>Ngày đổi trả</span></div>
+            </div>
+
+            <section class="capability-section">
+              <div class="section-title"><span>GUARDRAILS</span><small id="guardrailCount">0 lớp</small></div>
+              <div class="guardrail-list" id="guardrailList">
+                <p class="capability-loading">Đang tải guardrail…</p>
+              </div>
+            </section>
+
+            <section class="capability-section">
+              <div class="section-title"><span>AVAILABLE TOOLS</span><small id="toolCount">0 tools</small></div>
+              <div class="tool-list" id="toolList">
+                <p class="capability-loading">Đang tải công cụ…</p>
+              </div>
+            </section>
+          </div>
+        </aside>
+      </main>
+    </div>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

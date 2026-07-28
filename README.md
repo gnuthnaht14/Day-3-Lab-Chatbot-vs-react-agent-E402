@@ -71,3 +71,21 @@ timeline
 
 > 🚀 **BẮT ĐẦU LÀM BÀI**:
 > Vui lòng mở sổ tay thực hành 👉 **[PHAN_CONG_CONG_VIEC.md](file:///c:/Users/Admin/Documents/VinUni/LabCoachVin/LabKeyCoach/Day-3-Lab-Chatbot-vs-react-agent-E402/docs/PHAN_CONG_CONG_VIEC.md)** để xem phân vai và checklist công việc cụ thể cho từng thành viên!
+
+---
+
+### 💬 5. GIAO DIỆN CHAT ORDERCARE
+
+Khởi động giao diện chăm sóc khách hàng:
+
+```bash
+python src/web_app.py
+```
+
+Sau đó mở `http://127.0.0.1:8000`. Giao diện hỗ trợ:
+
+- Chat trực tiếp với ReAct Agent hoặc Chatbot Baseline.
+- Chạy cùng một câu hỏi qua hai hệ thống và so sánh kết quả cạnh nhau.
+- Timeline hiển thị Intent, Thought, Action, Observation và Guardrail.
+- Các câu hỏi mẫu cho tra cứu đơn hàng và đổi trả.
+- Tự động dùng provider được cấu hình trong file `.env`.
