@@ -2,26 +2,26 @@
   {
     "id": 1,
     "category": "🟢 Đơn giản (Chỉ cần LLM)",
-    "question": "Thủ đô của Việt Nam là gì?",
+    "question": "Bao lâu thì tôi được đổi trả?",
     "expected_behavior": "Chatbot trả lời trực tiếp từ kiến thức có sẵn."
   },
   {
     "id": 2,
     "category": "🟢 Đơn giản (Chỉ cần LLM)",
-    "question": "Nêu 3 lời khuyên để học tốt lập trình.",
+    "question": "Hàng bị lỗi có được đổi trả không.",
     "expected_behavior": "Chatbot trả lời trực tiếp từ kiến thức có sẵn."
   },
   {
     "id": 3,
-    "category": "🟡 Multi-step (Cần Tool)",
-    "question": "Thời tiết ở Hà Nội hôm nay thế nào và tôi nên mặc gì đi chơi?",
-    "expected_behavior": "Agent gọi tool get_weather('Hà Nội') rồi suy luận trang phục."
+    "category": "🟡 Multi-step (Cần 1 Tool)",
+    "question": "Đơn hàng #DH1024 của tôi đang ở đâu?",
+    "expected_behavior": "Agent gọi get_order_status('DH1024') nhận trạng thái đơn hàng và trả lời khách hàng."
   },
   {
     "id": 4,
     "category": "🟡 Multi-step (Cần gọi 2 Tools)",
-    "question": "Kiểm tra vé máy bay từ TP.HCM đi Hà Nội ngày mai và dự báo thời tiết ở Hà Nội.",
-    "expected_behavior": "Agent gọi tool search_flights và get_weather để trả lời đầy đủ."
+    "question": "Tôi muốn đổi trả đơn #DH3099 vì áo bị rách, đơn có còn trong thời hạn đổi trả không?",
+    "expected_behavior": "Agent gọi get_order_details('DH3099') và check_return_eligibility(order_id='DH3099', reason='damaged')để trả lời đầy đủ."
   },
   {
     "id": 5,
