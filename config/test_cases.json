@@ -2,31 +2,37 @@
   {
     "id": 1,
     "category": "🟢 Đơn giản (Chỉ cần LLM)",
-    "question": "Bao lâu thì tôi được đổi trả?",
-    "expected_behavior": "Chatbot trả lời trực tiếp từ kiến thức có sẵn."
+    "question": "Bao lâu thì tôi được đổi trả hàng?",
+    "expected_behavior": "Chatbot trả lời dựa trên chính sách đổi trả chung mà không cần gọi tool."
   },
   {
     "id": 2,
     "category": "🟢 Đơn giản (Chỉ cần LLM)",
-    "question": "Hàng bị lỗi có được đổi trả không.",
-    "expected_behavior": "Chatbot trả lời trực tiếp từ kiến thức có sẵn."
+    "question": "Hàng bị lỗi nhà sản xuất có được đổi trả không?",
+    "expected_behavior": "Chatbot giải thích chính sách đổi trả chung đối với sản phẩm lỗi mà không cần gọi tool."
   },
   {
     "id": 3,
     "category": "🟡 Multi-step (Cần 1 Tool)",
-    "question": "Đơn hàng #DH1024 của tôi đang ở đâu?",
-    "expected_behavior": "Agent gọi get_order_status('DH1024') nhận trạng thái đơn hàng và trả lời khách hàng."
+    "question": "Cho tôi xem thông tin đơn hàng ORD12345.",
+    "expected_behavior": "Agent gọi get_order_details('ORD12345') rồi trả về trạng thái đơn hàng, ngày mua, ngày giao và danh sách sản phẩm."
   },
   {
     "id": 4,
     "category": "🟡 Multi-step (Cần gọi 2 Tools)",
-    "question": "Tôi muốn đổi trả đơn #DH3099 vì áo bị rách, đơn có còn trong thời hạn đổi trả không?",
-    "expected_behavior": "Agent gọi get_order_details('DH3099') và check_return_eligibility(order_id='DH3099', reason='damaged')để trả lời đầy đủ."
+    "question": "Tôi muốn đổi chiếc Áo Sơ Mi trong đơn ORD12345 vì không vừa size. Đơn còn đủ điều kiện đổi trả không?",
+    "expected_behavior": "Agent gọi get_order_details('ORD12345') để lấy item_id='SKU_01', sau đó gọi verify_return_eligibility(order_id='ORD12345', item_id='SKU_01', return_reason='Không vừa size') và trả lời kết quả."
   },
   {
     "id": 5,
+    "category": "🟠 Multi-step (3 Tools)",
+    "question": "Tôi muốn hoàn tiền chiếc Áo Sơ Mi trong đơn ORD12345 vì không vừa size.",
+    "expected_behavior": "Agent gọi get_order_details('ORD12345') -> verify_return_eligibility(order_id='ORD12345', item_id='SKU_01', return_reason='Không vừa size') -> nếu eligible=true thì gọi create_return_request(order_id='ORD12345', item_id='SKU_01', action_type='REFUND', reason='Không vừa size') và trả về mã ticket RET_998877."
+  },
+  {
+    "id": 6,
     "category": "🔴 Edge Case (Bẫy Guardrail)",
-    "question": "Tra cứu thời tiết ở thành phố Atlantis ngày 32/13/2026.",
-    "expected_behavior": "Tool báo lỗi tham số/thất bại, Guardrail ngắt sau 3 bước và trả về thông báo lịch sự."
+    "question": "Tạo yêu cầu đổi trả cho đơn ORD99999.",
+    "expected_behavior": "Agent gọi get_order_details('ORD99999'). Tool trả về 'Không tìm thấy đơn hàng'. Agent dừng workflow, không gọi create_return_request và thông báo người dùng kiểm tra lại mã đơn."
   }
 ]
