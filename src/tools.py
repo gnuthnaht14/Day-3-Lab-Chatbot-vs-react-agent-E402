@@ -3,47 +3,104 @@
 Nơi khai báo tất cả các "món đồ nghề" mà ReAct Agent có thể gọi.
 """
 
-def get_weather(location: str) -> str:
+import json
+from datetime import datetime, timedelta
+
+def get_order_details(order_id: str, customer_phone: str = "") -> str:
     """
-    Tra cứu thời tiết hiện tại của một thành phố.
+    Tra cứu chi tiết đơn hàng dựa vào Mã đơn hàng (order_id) và Số điện thoại khách hàng.
     
     Args:
-        location (str): Tên thành phố (Ví dụ: 'Hà Nội', 'TP.HCM', 'Đà Nẵng')
+        order_id (str): Mã đơn hàng (Ví dụ: 'ORD12345')
+        customer_phone (str): Số điện thoại xác minh của khách hàng
         
     Returns:
-        str: Thông tin thời tiết chi tiết
+        str: Chuỗi JSON chứa danh sách sản phẩm, ngày mua, trạng thái đơn hàng.
     """
-    loc_lower = location.lower()
-    if "hà nội" in loc_lower or "ha noi" in loc_lower:
-        return "Thời tiết Hà Nội: 28°C, Nắng nhẹ, Độ ẩm 65%."
-    elif "hồ chí minh" in loc_lower or "tp.hcm" in loc_lower or "hcm" in loc_lower:
-        return "Thời tiết TP.HCM: 33°C, Nắng nóng, Có mây."
-    elif "đà nẵng" in loc_lower or "da nang" in loc_lower:
-        return "Thời tiết Đà Nẵng: 30°C, Gió nhẹ, Mát mẻ."
-    else:
-        return f"LỖI: Không tìm thấy dữ liệu thời tiết cho địa điểm '{location}'."
+    # Mock database lookup
+    if order_id == "ORD12345":
+        return json.dumps({
+            "order_id": "ORD12345",
+            "purchase_date": "2026-07-20",
+            "delivered_date": "2026-07-22",
+            "status": "DELIVERED",
+            "total_amount": 850000,
+            "items": [
+                {"item_id": "SKU_01", "name": "Áo Sơ Mi Nam Oxford White - Size L", "price": 450000, "quantity": 1},
+                {"item_id": "SKU_02", "name": "Quần Jean Slimfit Blue - Size 32", "price": 400000, "quantity": 1}
+            ]
+        }, ensure_ascii=False)
+    return f"LỖI: Không tìm thấy đơn hàng với mã '{order_id}'."
 
 
-def search_flights(origin: str, destination: str) -> str:
+def verify_return_eligibility(order_id: str, item_id: str, return_reason: str) -> str:
     """
-    Tra cứu chuyến bay giữa hai địa điểm.
+    Kiểm tra xem sản phẩm trong đơn hàng có đủ điều kiện đổi/trả hay không.
     
     Args:
-        origin (str): Nơi đi (Ví dụ: 'TP.HCM')
-        destination (str): Nơi đến (Ví dụ: 'Hà Nội')
+        order_id (str): Mã đơn hàng
+        item_id (str): Mã sản phẩm cần đổi/trả (Ví dụ: 'SKU_01')
+        return_reason (str): Lý do đổi trả ('Lỗi nhà sản xuất', 'Không vừa size', 'Đổi ý',...)
         
     Returns:
-        str: Danh sách chuyến bay khả dụng và giá vé
+        str: Kết quả đánh giá đủ điều kiện hay không kèm lý do.
     """
-    return (
-        f"Chuyến bay từ {origin} -> {destination} ngày mai:\n"
-        f"1. VN123 (08:00) - Giá: 1,500,000 VNĐ (Còn vé)\n"
-        f"2. VJ456 (14:30) - Giá: 1,200,000 VNĐ (Còn vé)"
-    )
+    # Logic kiểm tra thời hạn 7 ngày
+    delivered_date = datetime.strptime("2026-07-22", "%Y-%m-%d")
+    current_date = datetime.now()
+    days_diff = (current_date - delivered_date).days
+    
+    if days_diff > 7:
+        return json.dumps({
+            "eligible": False,
+            "reason": f"Đơn hàng đã giao từ {days_diff} ngày trước. Đã vượt quá thời hạn cho phép đổi trả (7 ngày)."
+        }, ensure_ascii=False)
+        
+    return json.dumps({
+        "eligible": True,
+        "policy": "Miễn phí đổi size/mẫu trong 7 ngày đối với sản phẩm nguyên tem mác.",
+        "note": "Khách hàng cần cung cấp ảnh chụp sản phẩm còn nguyên tem mác."
+    }, ensure_ascii=False)
 
 
-# Danh sách các tool được đăng ký để Agent sử dụng
+def create_return_request(order_id: str, item_id: str, action_type: str, reason: str) -> str:
+    """
+    Tạo yêu cầu đổi hàng hoặc hoàn tiền chính thức trên hệ thống.
+    
+    Args:
+        order_id (str): Mã đơn hàng
+        item_id (str): Mã sản phẩm cần đổi/trả
+        action_type (str): Loại yêu cầu ('EXCHANGE' - Đổi size/mẫu, hoặc 'REFUND' - Trả hàng hoàn tiền)
+        reason (str): Lý do chi tiết
+        
+    Returns:
+        str: Mã ticket đổi trả và hướng dẫn gửi hàng.
+    """
+    return json.dumps({
+        "status": "SUCCESS",
+        "ticket_id": "RET_998877",
+        "return_shipping_code": "GHN_RET_12345",
+        "instruction": "Vui lòng đóng gói sản phẩm và mang tới bưu cục GHN gần nhất, đọc mã GHN_RET_12345."
+    }, ensure_ascii=False)
+
+
+def escalate_to_human_agent(order_id: str, summary: str) -> str:
+    """
+    Chuyển cuộc trò chuyện cho nhân viên CSKH khi gặp sự cố phức tạp hoặc tranh chấp.
+    
+    Args:
+        order_id (str): Mã đơn hàng liên quan
+        summary (str): Tóm tắt vấn đề của khách hàng
+        
+    Returns:
+        str: Thông báo chuyển tiếp thành công.
+    """
+    return f"Đã chuyển yêu cầu hỗ trợ đơn hàng {order_id} cho nhân viên CSKH. Mã lượt hỗ trợ: #SUP-9912."
+
+
 AVAILABLE_TOOLS = {
-    "get_weather": get_weather,
-    "search_flights": search_flights,
+    "get_order_details": get_order_details,
+    "verify_return_eligibility": verify_return_eligibility,
+    "create_return_request": create_return_request,
+    "escalate_to_human_agent": escalate_to_human_agent,
 }
