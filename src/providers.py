@@ -6,8 +6,14 @@ Hỗ trợ chuyển đổi linh hoạt giữa các nhà cung cấp AI chỉ bằ
 import os
 import sys
 import json
-import requests
-from dotenv import load_dotenv
+import re
+
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:
+    # Mock mode vẫn chạy được khi học viên chưa cài requirements.txt.
+    def load_dotenv():
+        return False
 
 # Đảm bảo in ra Tiếng Việt và Emojis không bị lỗi trên Windows Console
 if sys.stdout.encoding != 'utf-8':
@@ -108,6 +114,8 @@ class OpenRouterProvider(BaseLLMProvider):
         if not self.api_key or self.api_key == "your_openrouter_api_key_here":
             return "[OpenRouter Error]: Chưa cấu hình OPENROUTER_API_KEY trong file .env!"
         try:
+            import requests
+
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json"
@@ -135,9 +143,116 @@ class MockProvider(BaseLLMProvider):
     """Offline Mock Provider (Cho bài test không cần kết nối API)"""
     def generate(self, prompt: str, system_prompt: str = "") -> str:
         text = prompt.lower()
-        if "thời tiết" in text and "hà nội" in text:
-            return "Thought: Cần tra cứu thời tiết Hà Nội.\nAction: get_weather['Hà Nội']"
-        return "🤖 [Mock Provider]: Phản hồi giả lập offline cho bài test."
+
+        # Baseline không có tool: chỉ trả lời chính sách chung và thừa nhận giới hạn.
+        if "react agent" not in system_prompt.lower():
+            if "chính sách" in text:
+                return (
+                    "Chính sách đổi trả chính thức của cửa hàng: yêu cầu phải được "
+                    "gửi trong vòng 7 ngày kể từ khi đơn được giao; đơn phải ở trạng "
+                    "thái đã giao; và sản phẩm phải thuộc nhóm được phép đổi trả. "
+                    "Tôi không thể tra cứu hoặc thay đổi một đơn hàng cụ thể."
+                )
+            return (
+                "Tôi không có quyền truy cập dữ liệu đơn hàng thực tế. "
+                "Bạn cần sử dụng trợ lý có công cụ tra cứu đơn hàng."
+            )
+
+        # Chỉ phân loại intent trên câu hỏi gốc, không lấy nhầm dữ liệu từ Observation.
+        user_prompt = prompt.splitlines()[0]
+        user_text = user_prompt.lower()
+        order_match = re.search(r"\bord\d+\b", user_text, re.IGNORECASE)
+        phone_match = re.search(
+            r"(?<!\d)(?:\+84|0)(?:[\s.-]?\d){9}(?!\d)", user_prompt
+        )
+        if not order_match and phone_match:
+            phone_number = phone_match.group(0).strip()
+            observations = re.findall(r"Observation:\s*(.+)", prompt, re.IGNORECASE)
+            action_names = re.findall(r"Action:\s*([A-Za-z_]\w*)", prompt)
+            if "look_order_id" not in action_names:
+                return (
+                    "Thought: Tôi cần tìm mã đơn theo số điện thoại.\n"
+                    f'Action: look_order_id["{phone_number}"]'
+                )
+
+            last_observation = observations[-1] if observations else ""
+            if last_observation.startswith("LỖI"):
+                return (
+                    "Thought: Không tìm thấy đơn hàng tương ứng.\n"
+                    f"Final Answer: {last_observation}"
+                )
+            return (
+                "Thought: Tôi đã tìm thấy các mã đơn của khách hàng.\n"
+                f"Final Answer: {last_observation}"
+            )
+
+        if not order_match:
+            return (
+                "Thought: Đây là câu hỏi chính sách chung, không cần gọi tool.\n"
+                "Final Answer: Cửa hàng hỗ trợ đổi trả trong 7 ngày đối với "
+                "sản phẩm đủ điều kiện."
+            )
+
+        order_id = order_match.group(0).upper()
+        observations = re.findall(r"Observation:\s*(.+)", prompt, re.IGNORECASE)
+        action_names = re.findall(r"Action:\s*([A-Za-z_]\w*)", prompt)
+        last_observation = observations[-1] if observations else ""
+
+        if "lookup_order" not in action_names:
+            return (
+                "Thought: Tôi cần xác minh đơn hàng trước.\n"
+                f'Action: lookup_order["{order_id}"]'
+            )
+
+        if last_observation.startswith("LỖI"):
+            return (
+                "Thought: Không tìm thấy đơn nên tôi phải dừng.\n"
+                f"Final Answer: Không tìm thấy đơn hàng {order_id}; "
+                "tôi chưa tạo bất kỳ yêu cầu đổi trả nào."
+            )
+
+        return_intent = any(
+            keyword in user_text for keyword in ("đổi trả", "trả đơn", "trả hàng")
+        )
+        create_intent = any(
+            keyword in user_text for keyword in ("hãy tạo", "tạo yêu cầu", "giúp tôi")
+        )
+
+        if not return_intent:
+            return (
+                "Thought: Tôi đã có dữ liệu trạng thái đơn hàng.\n"
+                f"Final Answer: Thông tin đơn {order_id}: {last_observation}"
+            )
+
+        if "check_return_eligibility" not in action_names:
+            return (
+                "Thought: Tôi cần kiểm tra điều kiện đổi trả.\n"
+                f'Action: check_return_eligibility["{order_id}"]'
+            )
+
+        if "create_return_request" in action_names:
+            return (
+                "Thought: Yêu cầu đổi trả đã được tạo thành công.\n"
+                f"Final Answer: {last_observation}"
+            )
+
+        if not last_observation.startswith("ĐỦ ĐIỀU KIỆN"):
+            return (
+                "Thought: Đơn không đáp ứng điều kiện nên tôi phải dừng.\n"
+                f"Final Answer: {last_observation}"
+            )
+
+        if create_intent and "create_return_request" not in action_names:
+            reason = "Sản phẩm bị lỗi" if "bị lỗi" in user_text else "Không còn nhu cầu"
+            return (
+                "Thought: Người dùng đã yêu cầu tạo và đơn đủ điều kiện.\n"
+                f'Action: create_return_request["{order_id}", "{reason}"]'
+            )
+
+        return (
+            "Thought: Tôi đã kiểm tra xong điều kiện đổi trả.\n"
+            f"Final Answer: {last_observation}"
+        )
 
 
 def get_llm_provider(provider_name: str = None) -> BaseLLMProvider:
